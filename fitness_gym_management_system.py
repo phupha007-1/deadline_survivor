@@ -591,3 +591,398 @@ q13_pandas = (
 )
 print("QUESTION 13")
 display(q13_pandas)
+
+# ============================================
+# PART 8 : DATA VISUALIZATION
+# ============================================
+
+
+# --------------------------------------------
+# GRAPH 1
+# Total Revenue by Service
+# --------------------------------------------
+
+q1_pandas.plot(kind="bar", y="total_revenue", legend=False)
+
+plt.title("Total Revenue by Service")
+
+plt.xlabel("Service Type")
+
+plt.ylabel("Total Revenue (Baht)")
+
+plt.xticks(rotation=0)
+
+plt.show()
+
+
+# --------------------------------------------
+# GRAPH 2
+# Total Bookings by Service
+# --------------------------------------------
+
+q2_pandas.plot(kind="bar", y="total_bookings", legend=False)
+
+plt.title("Total Bookings by Service")
+
+plt.xlabel("Service Type")
+
+plt.ylabel("Number of Bookings")
+
+plt.xticks(rotation=0)
+
+plt.show()
+
+
+# --------------------------------------------
+# GRAPH 3
+# Monthly Revenue
+# --------------------------------------------
+
+membership_df["booking_date"] = pd.to_datetime(membership_df["booking_date"])
+
+monthly_revenue = (membership_df.groupby(membership_df["booking_date"].dt.to_period("M"))["price"].sum())
+
+monthly_revenue.plot(kind="line", marker="o")
+
+plt.title("Monthly Revenue")
+
+plt.xlabel("Month")
+
+plt.ylabel("Revenue (Baht)")
+
+plt.xticks(rotation=45)
+
+plt.show()
+
+# ============================================
+# PART 9 : EXPORT CSV
+# ============================================
+
+membership_df.to_csv("gym_membership_data.csv", index=False, encoding="utf-8-sig")
+
+print("Export CSV สำเร็จ")
+
+# ============================================
+# PART 10 : INPUT NEW BOOKING + VIP DISCOUNT
+# ============================================
+
+def add_new_booking():
+    global membership_df
+    try:
+        member_id = int(input("กรอก Member ID: "))
+        if member_id not in member_data:
+            print("❌ ไม่พบ Member ID")
+            return
+
+        selected_member = member_data[member_id]
+        print("\nเลือก Package")
+
+        for package in packages:
+            print(
+                f"{package.package_id} - "
+                f"{package.package_name} "
+                f"({package.price} บาท)"
+            )
+
+
+        package_id = int(input("กรอก Package ID: "))
+        selected_package = find_package(package_id)
+
+        if selected_package is None:
+            return
+
+        print("\nเลือก Service")
+
+        for i, service in enumerate(services, start=1):
+
+            print(f"{i} - {service}")
+
+
+        service_choice = int(input("เลือก Service: "))
+
+        if (service_choice < 1 or service_choice > len(services)):
+            print("❌ เลือก Service ไม่ถูกต้อง")
+            return
+
+        hours = float(input("จำนวนชั่วโมง: "))
+
+        if not validate_hours(hours):
+            return
+
+
+        # ------------------------------------
+        # สร้าง Booking ID ใหม่
+        # ------------------------------------
+
+        new_booking_id = max([booking.booking_id for booking in memberships_300]) + 1
+
+
+        # ------------------------------------
+        # สร้าง Booking
+        # ------------------------------------
+
+        new_booking = MembershipPackage(booking_id=new_booking_id, member=selected_member, package=selected_package, hours=hours, service_type=services[service_choice - 1],booking_date=datetime.now())
+
+        new_booking.mark_done()
+
+
+        # ------------------------------------
+        # คำนวณราคา VIP
+        # ------------------------------------
+
+        original_price = (new_booking.calculate_price())
+
+        discount, final_price = (calculate_final_price(original_price, selected_member.is_vip))
+
+
+        # ------------------------------------
+        # เพิ่มลง List
+        # ------------------------------------
+
+        memberships_300.append(new_booking)
+
+
+        # ------------------------------------
+        # เพิ่มลง DataFrame
+        # เพื่อให้ Dashboard เห็นข้อมูลใหม่
+        # ------------------------------------
+
+        new_data = pd.DataFrame([{
+
+            "booking_id":new_booking.booking_id,
+
+            "member_id":selected_member.member_id,
+
+            "name":selected_member.name,
+
+            "age":selected_member.age,
+
+            "weight_kg":selected_member.weight_kg,
+
+            "is_vip":selected_member.is_vip,
+
+            "package_id":selected_package.package_id,
+
+            "package_name":selected_package.package_name,
+
+            # เก็บราคาสุทธิ
+            "price":final_price,
+
+            "hours":new_booking.hours,
+
+            "service_type":new_booking.service_type,
+
+            "booking_date":new_booking.booking_date,
+
+            "status":new_booking.status
+        }])
+
+
+        membership_df = pd.concat([membership_df, new_data], ignore_index=True)
+
+
+        # ------------------------------------
+        # แสดงผล
+        # ------------------------------------
+
+        print("\n================================")
+
+        print("       เพิ่มการจองสำเร็จ!")
+
+        print("================================")
+
+        print(
+            f"Booking ID: "
+            f"{new_booking_id}"
+        )
+
+        print(
+            f"Member: "
+            f"{selected_member.name}"
+        )
+
+        print(
+            f"Package: "
+            f"{selected_package.package_name}"
+        )
+
+        print(
+            f"Service: "
+            f"{new_booking.service_type}"
+        )
+
+        print(
+            f"ราคาเต็ม: "
+            f"{original_price:,.2f} บาท"
+        )
+
+
+        if selected_member.is_vip:
+
+            print(
+                "ส่วนลด VIP: "
+                f"{discount:,.2f} บาท"
+            )
+
+        else:
+            print("ส่วนลด: 0.00 บาท")
+
+
+        print(
+            f"ราคาสุทธิ: "
+            f"{final_price:,.2f} บาท"
+        )
+
+        print(
+            f"Status: "
+            f"{new_booking.status}"
+        )
+
+        print("================================")
+
+
+    except ValueError:
+        print("❌ กรุณากรอกข้อมูลให้ถูกต้อง")
+
+        # ============================================
+# PART 11 : SUMMARY REPORT
+# ============================================
+
+total_bookings = len(membership_df)
+
+total_revenue = membership_df["price"].sum()
+
+average_price = membership_df["price"].mean()
+
+vip_bookings = membership_df["is_vip"].sum()
+
+
+print(
+    "================================"
+)
+
+print(
+    "      GYM MEMBERSHIP REPORT"
+)
+
+print(
+    "================================"
+)
+
+print(f"Total Bookings: {total_bookings}")
+
+print(f"Total Revenue: {total_revenue:,.2f} Baht")
+
+print(f"Average Price: {average_price:,.2f} Baht")
+
+print(f"VIP Bookings: {vip_bookings}")
+
+print(
+    "================================"
+)
+
+# ============================================
+# PART 12 : SQLITE DATABASE
+# ============================================
+
+conn = sqlite3.connect("fitness_gym.db")
+
+
+membership_df.to_sql("gym_memberships", conn, if_exists="replace", index=False)
+
+
+print("บันทึกข้อมูลลง SQLite สำเร็จ")
+
+# ============================================
+# PART 13 : SQL ANALYSIS
+# ============================================
+
+
+# --------------------------------------------
+# QUESTION 1
+# --------------------------------------------
+
+q1_sql = pd.read_sql_query("""
+
+    SELECT
+
+        service_type,
+
+        SUM(price)
+        AS total_revenue
+
+    FROM gym_memberships
+
+    GROUP BY service_type
+
+    ORDER BY total_revenue DESC
+
+""", conn)
+
+
+print(
+    "QUESTION 1 - SQL"
+)
+
+display(q1_sql)
+
+
+# --------------------------------------------
+# QUESTION 2
+# --------------------------------------------
+
+q2_sql = pd.read_sql_query("""
+
+    SELECT
+
+        service_type,
+
+        COUNT(booking_id)
+        AS total_bookings,
+
+        SUM(price)
+        AS total_revenue
+
+    FROM gym_memberships
+
+    GROUP BY service_type
+
+    ORDER BY total_revenue DESC
+
+""", conn)
+
+
+print(
+    "QUESTION 2 - SQL"
+)
+
+display(q2_sql)
+
+
+# --------------------------------------------
+# QUESTION 3
+# --------------------------------------------
+
+q3_sql = pd.read_sql_query("""
+
+    SELECT
+
+        service_type,
+
+        AVG(weight_kg)
+        AS avg_weight
+
+    FROM gym_memberships
+
+    GROUP BY service_type
+
+    ORDER BY avg_weight DESC
+
+""", conn)
+
+
+print(
+    "QUESTION 3 - SQL"
+)
+
+display(q3_sql)
